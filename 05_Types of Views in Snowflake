@@ -1,0 +1,385 @@
+Snowflake Views - Complete Notes
+What is a View?
+
+A View in Snowflake is a virtual table created from a SQL query.
+
+A view does not store actual data (except Materialized Views).
+It stores only the SQL definition and metadata.
+When queried, Snowflake executes the underlying query and returns the latest data from the base tables.
+Example
+CREATE VIEW emp_view AS
+SELECT
+    emp_id,
+    emp_name,
+    salary
+FROM employees;
+
+Querying the view:
+
+SELECT * FROM emp_view;
+
+Snowflake internally executes:
+
+SELECT
+    emp_id,
+    emp_name,
+    salary
+FROM employees;
+Why Use Views?
+
+Views are commonly used for:
+
+Simplifying complex queries
+Data security
+Data abstraction
+Reusability
+Reporting and dashboards
+Restricting access to sensitive columns
+Example
+
+Base Table:
+
+employees
+---------
+emp_id
+emp_name
+salary
+ssn
+
+Create a public-facing view:
+
+CREATE VIEW employee_public AS
+SELECT
+    emp_id,
+    emp_name,
+    salary
+FROM employees;
+
+Users can access salary information without seeing SSN data.
+
+Types of Views in Snowflake
+1. Standard View
+
+A Standard View stores only the query definition.
+
+Example
+CREATE VIEW sales_view AS
+SELECT *
+FROM sales
+WHERE amount > 1000;
+Characteristics
+Stores metadata only
+No physical data storage
+Always returns latest data
+No additional storage cost
+Advantages
+Easy to create
+Good for security
+Simplifies reporting
+Disadvantages
+Query executes every time
+Complex views may impact performance
+2. Secure View
+
+A Secure View provides an additional layer of security.
+
+Example
+CREATE SECURE VIEW employee_secure AS
+SELECT
+    emp_id,
+    emp_name,
+    salary
+FROM employees;
+Features
+Hides underlying implementation details
+Protects metadata exposure
+Recommended for data sharing
+Improves security for external consumers
+Use Cases
+External customer access
+Snowflake Data Sharing
+Sensitive business data
+3. Materialized View
+
+A Materialized View physically stores precomputed query results.
+
+Example
+CREATE MATERIALIZED VIEW mv_sales AS
+SELECT
+    product_id,
+    SUM(amount) AS total_sales
+FROM sales
+GROUP BY product_id;
+Characteristics
+Stores actual query results
+Faster query performance
+Consumes storage
+Automatically maintained by Snowflake
+Advantages
+Fast aggregations
+Faster dashboard queries
+Reduced query computation
+Disadvantages
+Additional storage cost
+Some SQL limitations
+Materialized View Maintenance in Snowflake
+
+Unlike many databases, Snowflake automatically updates Materialized Views.
+
+Example
+
+Base Table:
+
+product_id | amount
+-----------+-------
+101        | 100
+101        | 200
+
+Materialized View:
+
+product_id | total_sales
+-----------+------------
+101        | 300
+
+Insert new data:
+
+INSERT INTO sales VALUES (101,50);
+
+Snowflake automatically updates the Materialized View.
+
+Result:
+
+product_id | total_sales
+-----------+------------
+101        | 350
+Important
+
+No manual refresh is required.
+
+Snowflake → Automatic Refresh
+Materialized Views in Other Databases
+PostgreSQL
+
+Requires manual refresh.
+
+REFRESH MATERIALIZED VIEW mv_sales;
+Oracle
+
+Supports:
+
+ON COMMIT Refresh
+ON DEMAND Refresh
+Scheduled Refresh
+
+Example:
+
+EXEC DBMS_MVIEW.REFRESH('MV_SALES');
+MySQL
+
+No native Materialized Views.
+
+SQL Server
+
+Uses Indexed Views instead of Materialized Views.
+
+4. Recursive View
+
+Used for hierarchical or tree-structured data.
+
+Example
+
+Employee Hierarchy
+
+CEO
+├── Manager1
+│   ├── Employee1
+│   └── Employee2
+└── Manager2
+    └── Employee3
+Example
+CREATE RECURSIVE VIEW org_hierarchy AS
+WITH RECURSIVE cte AS
+(
+    SELECT
+        emp_id,
+        manager_id,
+        emp_name
+    FROM employees
+    WHERE manager_id IS NULL
+
+    UNION ALL
+
+    SELECT
+        e.emp_id,
+        e.manager_id,
+        e.emp_name
+    FROM employees e
+    JOIN cte
+      ON e.manager_id = cte.emp_id
+)
+SELECT *
+FROM cte;
+Use Cases
+Organization charts
+Folder structures
+Product categories
+Bill of Materials (BOM)
+View vs Materialized View
+Feature	Standard View	Materialized View
+Stores Data	No	Yes
+Stores Metadata	Yes	Yes
+Query Performance	Normal	Faster
+Storage Cost	Minimal	Additional Storage
+Query Recalculated	Every Time	No
+Automatic Maintenance	N/A	Yes
+Best For	Security & Abstraction	Performance Optimization
+What Does "Stores Only Metadata" Mean?
+
+When creating:
+
+CREATE VIEW emp_view AS
+SELECT
+    emp_id,
+    emp_name
+FROM employees;
+
+Snowflake stores:
+
+✅ View Name
+
+✅ Owner
+
+✅ Creation Date
+
+✅ SQL Definition
+
+✅ Column Information
+
+Snowflake does NOT store:
+
+❌ Employee Records
+
+❌ Actual Data Rows
+
+Actual data remains in the underlying table.
+
+What Happens if the Base Table Changes?
+Adding a Column
+ALTER TABLE employees
+ADD department VARCHAR;
+
+View continues to work.
+
+Dropping a Referenced Column
+ALTER TABLE employees
+DROP COLUMN emp_name;
+
+View breaks because the column no longer exists.
+
+Renaming a Referenced Column
+ALTER TABLE employees
+RENAME COLUMN emp_name TO employee_name;
+
+View breaks.
+
+Dropping the Table
+DROP TABLE employees;
+
+View remains in metadata but becomes unusable.
+
+Nested Views
+
+A view can reference another view.
+
+Example
+CREATE VIEW v_emp AS
+SELECT *
+FROM employees;
+CREATE VIEW v_high_salary AS
+SELECT *
+FROM v_emp
+WHERE salary > 100000;
+Advantages
+Reusable logic
+Modular design
+Disadvantages
+Harder debugging
+Potential performance impact
+Security with Views
+
+Instead of granting access directly to tables:
+
+GRANT SELECT ON TABLE employees TO ROLE analyst;
+
+Organizations often grant access to views:
+
+GRANT SELECT ON VIEW employee_public TO ROLE analyst;
+
+Benefits:
+
+Better security
+Controlled access
+Hides sensitive information
+Useful Snowflake View Commands
+List All Views
+SHOW VIEWS;
+Describe a View
+DESC VIEW emp_view;
+
+or
+
+DESCRIBE VIEW emp_view;
+
+Shows:
+
+Column names
+Data types
+Metadata
+Get View Definition
+SELECT GET_DDL('VIEW', 'EMP_VIEW');
+
+Returns:
+
+CREATE VIEW EMP_VIEW AS
+...
+
+Useful for:
+
+Debugging
+Migration
+Reverse Engineering
+Important
+What is a View?
+
+A virtual table created from a SQL query that stores metadata and query definition rather than actual data.
+
+What is a Materialized View?
+
+A database object that physically stores query results for faster retrieval.
+
+Does Snowflake Materialized View Require Manual Refresh?
+
+No.
+
+Snowflake automatically maintains Materialized Views when underlying data changes.
+
+Difference Between View and Materialized View?
+View	Materialized View
+Stores Query Only	Stores Query Result
+No Storage Cost	Consumes Storage
+Query Runs Every Time	Faster Retrieval
+Always Current	Automatically Maintained
+Why Use Secure Views?
+
+To prevent users from accessing underlying implementation details and improve data security during data sharing.
+
+Key Takeaways
+Views are virtual tables.
+Standard Views store metadata only.
+Secure Views provide enhanced security.
+Materialized Views store precomputed results.
+Snowflake automatically maintains Materialized Views.
+Recursive Views help model hierarchical data.
+Views are widely used for security, reporting, and abstraction.
+Materialized Views are primarily used for performance optimization.
+SHOW VIEWS, DESC VIEW, and GET_DDL() are essential Snowflake commands for working with views.

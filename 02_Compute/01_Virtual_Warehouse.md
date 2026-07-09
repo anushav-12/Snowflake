@@ -41,15 +41,16 @@ Without a Virtual Warehouse, SQL queries cannot be executed.
 
 ## Compute Resources
 
-A Virtual Warehouse consists of compute resources such as:
+Warehouse provides compute resources such as CPU and RAM.
 
-- CPU
-- RAM (Memory)
+- CPU performs calculations, joins, sorting and aggregations.
+- RAM temporarily holds data while queries are being processed.
 
 These resources process data stored in the Storage Layer.
 
 > **Note:** Increasing the warehouse size increases compute resources, **not storage**.
-
+Increasing the warehouse size does **not** move or duplicate the data.
+Only the compute resources (CPU and RAM) increase, allowing queries to execute faster.
 ---
 
 ## Responsibilities

@@ -1,8 +1,6 @@
-# Snowflake-06-File-Formats-and-Stages.md
 
 # Snowflake Notes – File Formats & Stages
 
-> **Goal:** Understand how Snowflake loads data from files into tables and the role of **File Formats**, **Stages**, and **COPY INTO**.
 
 ---
 

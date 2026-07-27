@@ -1,199 +1,406 @@
-# RBAC in Snowflake
+# Snowflake Security - Role Based Access Control (RBAC)
 
-## Simple Definition
+## What is RBAC?
 
-RBAC stands for:
+RBAC (Role-Based Access Control) is Snowflake's security model where:
 
-```text
-Role-Based Access Control
+- Privileges are granted to Roles.
+- Roles are assigned to Users.
+- Users inherit the privileges of their assigned roles.
+
+Instead of granting permissions directly to users, permissions are managed through roles, making administration easier and more secure.
+
+---
+
+## RBAC Hierarchy
+
+```
+ACCOUNTADMIN
+      │
+SECURITYADMIN
+      │
+ SYSADMIN
+      │
+Custom Roles
+      │
+     Users
 ```
 
-It is a security mechanism in Snowflake where:
-- Permissions are assigned to roles
-- Roles are assigned to users
+---
 
-Instead of directly giving permissions to users.
+## Why RBAC?
+
+Suppose a company has 100 Data Engineers.
+
+❌ Without RBAC:
+- Grant permissions individually to all 100 users.
+
+✅ With RBAC:
+- Create one role.
+- Grant permissions to the role.
+- Assign the role to all users.
+
+If permissions change, update the role once instead of every user.
 
 ---
 
-# Basic Flow
+# Built-in Roles
 
-```text
-Privileges → Roles → Users
-```
+## 1. ACCOUNTADMIN
+
+Highest privilege role.
+
+Responsibilities:
+- Manage the entire Snowflake account
+- Billing
+- Warehouses
+- Databases
+- Security
+- Users
+- Roles
+
+Best Practice:
+- Avoid using ACCOUNTADMIN for daily work.
 
 ---
 
-# Simple Example
+## 2. SECURITYADMIN
 
-Suppose:
-- Analyst can only view data
-- Developer can modify data
+Responsible for security administration.
 
-Then different roles are created for each.
+Can:
+- Create Roles
+- Grant/Revoke Roles
+- Grant/Revoke Privileges
+- Manage Security Policies
 
----
-
-# Create Role
+Example
 
 ```sql
-CREATE ROLE analyst_role;
+CREATE ROLE DATA_ENGINEER;
+
+GRANT ROLE DATA_ENGINEER TO USER ANUSHA;
 ```
 
 ---
 
-# Grant Permission to Role
+## 3. USERADMIN
+
+Responsible for user management.
+
+Can:
+- Create Users
+- Alter Users
+- Delete Users
+- Reset Passwords
+
+Example
 
 ```sql
-GRANT SELECT ON TABLE employees TO ROLE analyst_role;
+CREATE USER ANUSHA
+PASSWORD='Password123';
 ```
-
-This means:
-- analyst_role can read employees table
 
 ---
 
-# Assign Role to User
+## 4. SYSADMIN
+
+Responsible for creating and managing objects.
+
+Can create:
+- Databases
+- Schemas
+- Tables
+- Views
+- Stages
+- Warehouses
+
+Example
 
 ```sql
-GRANT ROLE analyst_role TO USER anusha;
+CREATE DATABASE SALES_DB;
+
+CREATE SCHEMA SALES_DB.RAW;
 ```
 
-Now:
-- User anusha gets all permissions of analyst_role
+---
+
+## 5. PUBLIC
+
+Every user automatically receives this role.
+
+Best Practice:
+- Avoid granting sensitive permissions to PUBLIC.
 
 ---
 
-# Important Components
+# Users
 
-## 1. User
+Create User
 
-Actual person or application using Snowflake.
+```sql
+CREATE USER ANUSHA
+PASSWORD='Password123'
+DEFAULT_ROLE=DATA_ENGINEER
+DEFAULT_WAREHOUSE=COMPUTE_WH;
+```
 
-### Example
-- anusha
-- admin_user
+Useful Properties
 
----
-
-## 2. Role
-
-Collection of permissions.
-
-### Example
-- analyst_role
-- developer_role
+- DEFAULT_ROLE
+- DEFAULT_WAREHOUSE
+- DEFAULT_NAMESPACE
+- DEFAULT_SECONDARY_ROLES
 
 ---
 
-## 3. Privilege
+# Roles
 
-Specific permission.
+Create Role
 
-### Examples
+```sql
+CREATE ROLE DATA_ENGINEER;
+```
+
+Grant Role to User
+
+```sql
+GRANT ROLE DATA_ENGINEER
+TO USER ANUSHA;
+```
+
+Activate Role
+
+```sql
+USE ROLE DATA_ENGINEER;
+```
+
+---
+
+# Privileges
+
+Privileges define what a role can do.
+
+Common Privileges
+
+- USAGE
 - SELECT
 - INSERT
 - UPDATE
 - DELETE
 - CREATE
+- MODIFY
+- MONITOR
+- OWNERSHIP
+
+Example
+
+```sql
+GRANT SELECT
+ON TABLE SALES_DB.RAW.CUSTOMERS
+TO ROLE DATA_ENGINEER;
+```
 
 ---
 
-## 4. Object
+# Why is USAGE Required?
 
-Things permissions are applied on.
+To access a table, a role needs:
 
-### Examples
-- Database
-- Schema
-- Table
-- Warehouse
-- View
+1. USAGE on Database
+2. USAGE on Schema
+3. Appropriate privilege on the object (SELECT, INSERT, etc.)
+
+Example
+
+```sql
+GRANT USAGE
+ON DATABASE SALES_DB
+TO ROLE DATA_ENGINEER;
+
+GRANT USAGE
+ON SCHEMA SALES_DB.RAW
+TO ROLE DATA_ENGINEER;
+
+GRANT SELECT
+ON TABLE SALES_DB.RAW.CUSTOMERS
+TO ROLE DATA_ENGINEER;
+```
+
+Without USAGE, object-level privileges alone are not enough.
 
 ---
 
-# Built-in Roles in Snowflake
+# Ownership
 
-| Role | Purpose |
-|---|---|
-| ACCOUNTADMIN | Full access |
-| SYSADMIN | Manage objects |
-| SECURITYADMIN | Manage security and roles |
-| USERADMIN | Manage users |
-| PUBLIC | Default role for all users |
+Every Snowflake object has one owner.
+
+The owner can:
+
+- Drop the object
+- Rename the object
+- Grant privileges
+- Transfer ownership
+
+Transfer Ownership
+
+```sql
+GRANT OWNERSHIP
+ON TABLE SALES_DB.RAW.CUSTOMERS
+TO ROLE DATA_ENGINEER;
+```
+
+Note:
+Ownership is exclusive. An object can have only one owner at a time.
 
 ---
 
-# Role Hierarchy
+# Viewing Permissions
 
-Snowflake supports role inheritance.
+Show grants on a table
 
-Example:
+```sql
+SHOW GRANTS ON TABLE SALES_DB.RAW.CUSTOMERS;
+```
 
-```text
-ACCOUNTADMIN
-    ↓
+Show grants to a role
+
+```sql
+SHOW GRANTS TO ROLE DATA_ENGINEER;
+```
+
+Show roles
+
+```sql
+SHOW ROLES;
+```
+
+Show users
+
+```sql
+SHOW USERS;
+```
+
+---
+
+# Switching Context
+
+Switch Role
+
+```sql
+USE ROLE DATA_ENGINEER;
+```
+
+Switch Warehouse
+
+```sql
+USE WAREHOUSE COMPUTE_WH;
+```
+
+Switch Database
+
+```sql
+USE DATABASE SALES_DB;
+```
+
+Switch Schema
+
+```sql
+USE SCHEMA RAW;
+```
+
+---
+
+# Complete Example
+
+```sql
+CREATE ROLE DATA_ENGINEER;
+
+CREATE USER ANUSHA
+PASSWORD='Password123';
+
+GRANT ROLE DATA_ENGINEER
+TO USER ANUSHA;
+
+GRANT USAGE
+ON DATABASE SALES_DB
+TO ROLE DATA_ENGINEER;
+
+GRANT USAGE
+ON SCHEMA SALES_DB.RAW
+TO ROLE DATA_ENGINEER;
+
+GRANT SELECT, INSERT
+ON TABLE SALES_DB.RAW.CUSTOMERS
+TO ROLE DATA_ENGINEER;
+```
+
+---
+
+# Best Practices
+
+- Use roles instead of granting privileges directly to users.
+- Follow the Principle of Least Privilege.
+- Avoid using ACCOUNTADMIN for daily work.
+- Grant only the permissions required.
+- Use custom roles for different teams (Data Engineer, Analyst, BI Developer).
+- Avoid assigning sensitive permissions to PUBLIC.
+
+---
+
+# Interview Questions
+
+### What is RBAC?
+
+Role-Based Access Control is a security model where permissions are assigned to roles and roles are assigned to users.
+
+---
+
+### Why is RBAC preferred?
+
+- Easier administration
+- Better security
+- Reusable permissions
+- Easier auditing
+
+---
+
+### Which role creates databases?
+
 SYSADMIN
-    ↓
-CUSTOM_ROLE
-```
-
-Higher roles inherit permissions from lower roles.
 
 ---
 
-# Why RBAC is Important
+### Which role manages users?
 
-RBAC helps with:
-- Security
-- Access control
-- Easier permission management
-- Restricting unauthorized access
+USERADMIN
 
 ---
 
-# Real-Time Example
+### Which role manages roles and privileges?
 
-| Team | Access |
-|---|---|
-| Data Analyst | Read-only access |
-| Data Engineer | Read + Write access |
-| Admin | Full access |
-
-RBAC ensures each team gets only required access.
+SECURITYADMIN
 
 ---
 
-# Important Interview Points
+### Which role has the highest privileges?
 
-- RBAC stands for Role-Based Access Control
-- Permissions are assigned to roles
-- Roles are assigned to users
-- Improves security and management
-- Snowflake provides built-in admin roles
+ACCOUNTADMIN
 
 ---
 
-# Quick Revision Notes
+### Can users have multiple roles?
 
-```text
-Privileges → Roles → Users
-```
-
-```text
-Role = Collection of permissions
-```
-
-```text
-RBAC improves security and access management
-```
+Yes.
 
 ---
 
-# What I Learned
+### Why is USAGE required?
 
-- Snowflake uses RBAC for security
-- Users get permissions through roles
-- Roles simplify permission management
-- Built-in admin roles already exist
-- Access can be controlled efficiently
+Because access to a database and schema is required before accessing objects inside them.
+
+---
+
+### What is OWNERSHIP?
+
+The OWNERSHIP privilege gives full control over an object, including the ability to grant privileges and transfer ownership.
